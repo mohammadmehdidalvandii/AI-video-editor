@@ -1,0 +1,16 @@
+{
+  "name": "ai-video-editor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI-powered video editing platform",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "",
+    "build": "",
+    "test": "",
+    "lint": ""
+  }
+}
