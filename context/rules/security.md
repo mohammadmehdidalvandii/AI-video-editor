@@ -1,0 +1,1523 @@
+# Security Rules
+
+## Purpose
+
+This document defines the security rules for the AI Video Editor.
+
+The security architecture must protect:
+
+- Users
+- Projects
+- Media files
+- AI workflows
+- API credentials
+- Database
+- Workers
+- Storage
+- Infrastructure
+
+---
+
+# 1. Security Principles
+
+Follow:
+
+- Least Privilege
+- Zero Trust
+- Defense in Depth
+- Secure by Default
+- Fail Securely
+- Never Trust External Input
+
+---
+
+# 2. Authentication
+
+All protected API endpoints must require authentication.
+
+Authentication is responsible for identifying the user.
+
+Authorization is responsible for determining what the user can access.
+
+Never mix these responsibilities.
+
+---
+
+# 3. Authorization
+
+Every protected resource must verify ownership or permission.
+
+Example:
+
+    User
+      ↓
+    Project
+      ↓
+    Permission
+
+Never assume that knowing a:
+
+    projectId
+
+is enough to access a project.
+
+---
+
+# 4. IDOR Protection
+
+Prevent insecure direct object references.
+
+Bad:
+
+    GET /projects/:projectId
+
+where the backend only checks whether the ID exists.
+
+Correct:
+
+    Authenticate User
+        ↓
+    Load Project
+        ↓
+    Verify Ownership / Permission
+        ↓
+    Return Resource
+
+---
+
+# 5. Password Security
+
+Passwords must never be stored as plain text.
+
+Use a strong password hashing algorithm.
+
+Recommended:
+
+    Argon2id
+
+Alternative:
+
+    bcrypt
+
+Never store reversible passwords.
+
+---
+
+# 6. Password Requirements
+
+Password policies should balance security and usability.
+
+Do not rely only on complicated character requirements.
+
+Use:
+
+- Minimum length
+- Password hashing
+- Rate limiting
+- Login protection
+- Optional MFA
+
+---
+
+# 7. Session Security
+
+Authentication tokens must be handled securely.
+
+Avoid exposing sensitive authentication tokens unnecessarily.
+
+For browser authentication, prefer secure mechanisms such as:
+
+    HttpOnly Cookies
+
+when appropriate.
+
+---
+
+# 8. JWT
+
+If JWT is used:
+
+- Use strong signing secrets or keys
+- Validate signature
+- Validate expiration
+- Validate issuer when applicable
+- Validate audience when applicable
+- Never trust client-provided claims without verification
+
+---
+
+# 9. Token Expiration
+
+Access tokens should have limited lifetimes.
+
+Long-lived credentials should not be used as normal access tokens.
+
+Use refresh mechanisms when required.
+
+---
+
+# 10. Refresh Tokens
+
+Refresh tokens must be protected carefully.
+
+Recommended:
+
+- Secure storage
+- Rotation
+- Revocation
+- Expiration
+- Detection of reuse when appropriate
+
+---
+
+# 11. API Keys
+
+API keys must never be committed to Git.
+
+Never place secrets inside:
+
+- Source code
+- README files
+- Frontend bundles
+- Logs
+- Error messages
+
+---
+
+# 12. Environment Variables
+
+Secrets should be provided through secure configuration.
+
+Examples:
+
+    DATABASE_URL
+    JWT_SECRET
+    OPENROUTER_API_KEY
+    REDIS_URL
+    STORAGE_SECRET
+
+Use:
+
+    .env
+
+for local development.
+
+Use:
+
+    .env.example
+
+to document required variables without exposing secrets.
+
+---
+
+# 13. Secret Management
+
+Production secrets should eventually use a dedicated secret-management system.
+
+Examples:
+
+- Cloud Secret Manager
+- Vault
+- Platform Secret Store
+
+Do not rely on committed configuration files.
+
+---
+
+# 14. Frontend Secrets
+
+Never put private API keys inside frontend code.
+
+Anything shipped to the browser must be considered public.
+
+Bad:
+
+    VITE_PRIVATE_API_KEY
+
+Correct:
+
+    Browser
+        ↓
+    Backend
+        ↓
+    Private Provider
+
+---
+
+# 15. AI Provider Keys
+
+AI provider credentials must remain server-side.
+
+Architecture:
+
+    Frontend
+        ↓
+    API
+        ↓
+    AI Service
+        ↓
+    Provider
+
+Never:
+
+    Frontend
+        ↓
+    AI Provider using private key
+
+---
+
+# 16. Input Validation
+
+Every external input must be validated.
+
+Sources include:
+
+- HTTP requests
+- Query parameters
+- URL parameters
+- Request bodies
+- File uploads
+- Webhooks
+- Queue jobs
+- AI output
+- External APIs
+
+---
+
+# 17. Schema Validation
+
+Use runtime schemas.
+
+Recommended:
+
+    Zod
+
+Example:
+
+    Request
+      ↓
+    Zod Schema
+      ↓
+    Application
+
+Never assume TypeScript types alone validate runtime data.
+
+---
+
+# 18. SQL Injection
+
+Never construct SQL queries using untrusted string concatenation.
+
+Prefer:
+
+    Sequelize
+    Parameterized Queries
+
+If raw SQL is necessary, use parameterized values.
+
+---
+
+# 19. NoSQL Injection
+
+If a NoSQL database is introduced later, validate operators and query structures.
+
+Never directly pass untrusted objects into database queries without validation.
+
+---
+
+# 20. Command Injection
+
+Command execution is a critical security boundary.
+
+Never execute arbitrary user input through:
+
+    exec()
+    shell commands
+    dynamic scripts
+
+---
+
+# 21. FFmpeg Security
+
+FFmpeg commands must be generated by controlled application code.
+
+Never allow the AI or user to submit arbitrary shell commands.
+
+Preferred:
+
+    User / AI
+        ↓
+    Structured Operation
+        ↓
+    Validation
+        ↓
+    Render Service
+        ↓
+    FFmpeg
+
+---
+
+# 22. FFprobe Security
+
+FFprobe should receive controlled file references.
+
+Do not allow arbitrary filesystem paths from users or AI.
+
+---
+
+# 23. File Path Security
+
+Never trust user-provided paths.
+
+Prevent:
+
+    Path Traversal
+
+Examples of dangerous input:
+
+    ../../etc/passwd
+
+or equivalent traversal techniques.
+
+---
+
+# 24. File Access
+
+Users should access media through controlled identifiers.
+
+Prefer:
+
+    mediaId
+
+instead of:
+
+    /server/storage/user123/video.mp4
+
+---
+
+# 25. File Upload Security
+
+Validate:
+
+- File size
+- MIME type
+- Extension
+- File signature
+- Filename
+- Storage location
+
+Never trust only the extension.
+
+---
+
+# 26. Upload Limits
+
+Set limits for:
+
+- Maximum file size
+- Maximum number of files
+- Upload rate
+- Request body size
+
+Large video files can consume significant resources.
+
+---
+
+# 27. Malicious Files
+
+Uploaded files must be treated as untrusted.
+
+Potential risks include:
+
+- Malicious payloads
+- Resource exhaustion
+- Parser vulnerabilities
+- Unexpected codecs
+- Malformed containers
+
+Use controlled processing environments.
+
+---
+
+# 28. Media Processing Isolation
+
+Video processing should run outside the main API process.
+
+Preferred:
+
+    API
+      ↓
+    Queue
+      ↓
+    Isolated Worker
+      ↓
+    FFmpeg
+
+---
+
+# 29. Worker Permissions
+
+Workers should run with the minimum permissions required.
+
+Workers should not have unnecessary:
+
+- Database privileges
+- Filesystem access
+- Network access
+- System permissions
+
+---
+
+# 30. Worker Filesystem
+
+Workers should use isolated temporary directories.
+
+Example:
+
+    /tmp/jobs/{jobId}/
+
+Files should be removed after processing.
+
+---
+
+# 31. Resource Limits
+
+Video processing can consume:
+
+- CPU
+- RAM
+- Disk
+- Network
+
+Workers should have appropriate resource limits.
+
+---
+
+# 32. Process Timeouts
+
+FFmpeg and other external processes must have timeouts.
+
+Example:
+
+    Job
+      ↓
+    Timeout
+      ↓
+    Terminate Process
+      ↓
+    Cleanup
+      ↓
+    Mark Failed
+
+Never allow runaway processes indefinitely.
+
+---
+
+# 33. Denial of Service Protection
+
+Protect expensive endpoints using:
+
+- Rate limiting
+- Request limits
+- Upload limits
+- Queue limits
+- Timeouts
+- Authentication
+
+---
+
+# 34. Rate Limiting
+
+Apply rate limits to sensitive endpoints.
+
+Examples:
+
+- Login
+- Password reset
+- AI requests
+- File uploads
+- Render creation
+- Expensive analysis
+
+---
+
+# 35. AI Rate Limiting
+
+AI requests can be expensive.
+
+Use limits based on:
+
+- User
+- API key
+- IP
+- Project
+- Subscription
+- Time window
+
+---
+
+# 36. Render Rate Limiting
+
+Rendering is computationally expensive.
+
+Prevent users from creating unlimited render jobs.
+
+Possible controls:
+
+    Maximum Concurrent Jobs
+    Maximum Daily Jobs
+    Queue Priority
+    User Quotas
+
+---
+
+# 37. Queue Security
+
+Queue jobs must be validated.
+
+Never assume that a queue payload is trustworthy.
+
+Validate:
+
+    job name
+    projectId
+    mediaId
+    operation
+    parameters
+
+---
+
+# 38. Job Authorization
+
+A worker must verify that the referenced resources are valid.
+
+Example:
+
+    Job
+      ↓
+    Project Exists
+      ↓
+    Media Exists
+      ↓
+    Permission Valid
+      ↓
+    Execute
+
+---
+
+# 39. AI Output Security
+
+AI output must be treated as untrusted data.
+
+Never execute raw model output.
+
+Required flow:
+
+    AI Output
+        ↓
+    Schema Validation
+        ↓
+    Business Validation
+        ↓
+    Authorization
+        ↓
+    Tool Execution
+
+---
+
+# 40. Prompt Injection
+
+User-provided content may attempt to manipulate the AI.
+
+Examples:
+
+- Video metadata
+- Subtitles
+- Text overlays
+- Uploaded documents
+- Project descriptions
+
+Treat external content as data, not instructions.
+
+---
+
+# 41. System Instructions
+
+System-level AI rules must remain separate from user-controlled content.
+
+Preferred:
+
+    System Context
+        +
+    Application Rules
+        +
+    User Request
+        +
+    External Content
+
+External content must not override higher-priority rules.
+
+---
+
+# 42. Tool Authorization
+
+AI tools must have explicit permissions.
+
+Example:
+
+    analyze_media
+        permission: read
+
+    trim_clip
+        permission: edit
+
+    start_render
+        permission: render
+
+Tools should not automatically receive unrestricted permissions.
+
+---
+
+# 43. High-Risk AI Actions
+
+Actions that can:
+
+- Delete data
+- Modify projects
+- Start expensive rendering
+- Access private media
+- Modify permissions
+
+should have additional validation.
+
+---
+
+# 44. Destructive Operations
+
+Destructive operations should require explicit authorization.
+
+Examples:
+
+    delete_project
+    delete_media
+    permanently_delete_render
+
+Prefer soft-delete where appropriate.
+
+---
+
+# 45. Soft Delete
+
+Important entities may use soft deletion.
+
+Example:
+
+    deletedAt
+
+This allows:
+
+- Recovery
+- Auditing
+- Safety checks
+
+Permanent deletion should be deliberate.
+
+---
+
+# 46. Data Ownership
+
+Every user-owned resource should have a clear ownership relationship.
+
+Example:
+
+    User
+      ↓
+    Project
+      ↓
+    Media
+      ↓
+    Timeline
+
+Authorization should follow these relationships.
+
+---
+
+# 47. Multi-Tenant Isolation
+
+If the platform supports multiple organizations or teams:
+
+    Tenant
+      ↓
+    Users
+      ↓
+    Projects
+      ↓
+    Media
+
+Every query must respect tenant boundaries.
+
+---
+
+# 48. Database Permissions
+
+Production database users should have only required privileges.
+
+Avoid using:
+
+    root
+
+for application access.
+
+---
+
+# 49. Database Credentials
+
+Use separate credentials for:
+
+- Application
+- Migration
+- Administration
+
+Do not reuse privileged credentials unnecessarily.
+
+---
+
+# 50. Database Backups
+
+Production databases must have backups.
+
+Backups should have:
+
+- Encryption
+- Retention policy
+- Access controls
+- Recovery testing
+
+A backup that cannot be restored is not a reliable backup.
+
+---
+
+# 51. Encryption in Transit
+
+Use TLS for external communication.
+
+Examples:
+
+    HTTPS
+    Secure database connections
+    Secure Redis connections
+    Secure storage connections
+
+---
+
+# 52. Encryption at Rest
+
+Sensitive production data should use encryption at rest where supported.
+
+Especially:
+
+- Database
+- Object Storage
+- Backups
+- Secrets
+
+---
+
+# 53. CORS
+
+CORS must be explicitly configured.
+
+Avoid:
+
+    Access-Control-Allow-Origin: *
+
+for authenticated production APIs unless there is a specific reason.
+
+Allow only trusted origins.
+
+---
+
+# 54. Security Headers
+
+Use appropriate security headers.
+
+Recommended protection includes:
+
+- Content Security Policy
+- X-Content-Type-Options
+- Referrer-Policy
+- Strict-Transport-Security
+- Frame protection
+
+Use established middleware where appropriate.
+
+---
+
+# 55. Helmet
+
+For Express applications, consider:
+
+    Helmet
+
+to establish secure HTTP headers.
+
+Review its configuration rather than blindly accepting defaults.
+
+---
+
+# 56. CSRF
+
+If authentication uses cookies, protect state-changing requests against CSRF.
+
+Possible mechanisms:
+
+- SameSite cookies
+- CSRF tokens
+- Origin validation
+
+---
+
+# 57. XSS Protection
+
+Never inject untrusted HTML directly into the frontend.
+
+Sanitize user-generated HTML when HTML rendering is required.
+
+Treat:
+
+    subtitles
+    text overlays
+    project descriptions
+
+as untrusted content.
+
+---
+
+# 58. SSRF Protection
+
+If the system downloads media from user-provided URLs, protect against SSRF.
+
+Validate:
+
+- Protocol
+- Host
+- IP range
+- Redirects
+- Private network access
+
+Do not allow arbitrary internal network access.
+
+---
+
+# 59. Webhooks
+
+Webhook endpoints must verify authenticity.
+
+Use:
+
+- Signature validation
+- Timestamp validation
+- Replay protection
+
+Never trust webhook payloads without verification.
+
+---
+
+# 60. External APIs
+
+External API responses must be treated as untrusted.
+
+Validate:
+
+    schema
+    type
+    size
+    expected fields
+
+---
+
+# 61. Logging Security
+
+Logs must never contain:
+
+- Passwords
+- API keys
+- Access tokens
+- Refresh tokens
+- Private credentials
+
+---
+
+# 62. Sensitive Data Masking
+
+Sensitive values should be masked.
+
+Example:
+
+    sk-****************1234
+
+instead of logging the full secret.
+
+---
+
+# 63. Error Messages
+
+Production errors should not expose:
+
+- Stack traces
+- Database credentials
+- Internal filesystem paths
+- SQL queries
+- Provider secrets
+- Internal infrastructure details
+
+---
+
+# 64. Security Logging
+
+Record security-relevant events.
+
+Examples:
+
+    login.failed
+    login.success
+    permission.denied
+    token.revoked
+    project.access.denied
+    suspicious.upload
+    render.limit.exceeded
+
+---
+
+# 65. Audit Logs
+
+Important actions should be auditable.
+
+Examples:
+
+- Project deletion
+- Media deletion
+- Permission changes
+- AI tool execution
+- Render creation
+- Account changes
+
+---
+
+# 66. Request Correlation
+
+Security-related events should contain identifiers such as:
+
+    requestId
+    userId
+    projectId
+    jobId
+
+when appropriate.
+
+---
+
+# 67. Dependency Security
+
+Dependencies must be monitored for vulnerabilities.
+
+Use:
+
+    npm audit
+
+and appropriate dependency scanning tools.
+
+---
+
+# 68. Dependency Updates
+
+Security updates should be prioritized.
+
+Do not ignore known critical vulnerabilities without documenting the reason.
+
+---
+
+# 69. Package Installation
+
+Before adding a dependency:
+
+- Verify package identity
+- Check maintenance
+- Check reputation
+- Review permissions
+- Review vulnerabilities
+- Review license
+
+Avoid unnecessary packages.
+
+---
+
+# 70. Supply Chain Security
+
+Lock dependency versions through:
+
+    package-lock.json
+
+Do not casually modify lock files manually.
+
+---
+
+# 71. Git Security
+
+Never commit:
+
+    .env
+    credentials
+    private keys
+    tokens
+    production dumps
+    private certificates
+
+Use:
+
+    .gitignore
+
+---
+
+# 72. Git History
+
+If a secret is accidentally committed, deleting the file is not enough.
+
+The secret must be:
+
+1. Revoked
+2. Rotated
+3. Removed from history when necessary
+
+---
+
+# 73. CI/CD Security
+
+CI pipelines must protect:
+
+- Secrets
+- Deployment credentials
+- Tokens
+- Build artifacts
+
+Avoid exposing secrets in logs.
+
+---
+
+# 74. Deployment Security
+
+Production deployments should:
+
+- Use HTTPS
+- Use restricted credentials
+- Disable unnecessary ports
+- Use firewalls
+- Keep dependencies updated
+- Run processes with limited permissions
+
+---
+
+# 75. Container Security
+
+If Docker is used:
+
+- Use minimal images
+- Avoid running as root
+- Pin important versions
+- Scan images
+- Limit capabilities
+- Avoid unnecessary packages
+
+---
+
+# 76. Network Security
+
+Separate public and private resources.
+
+Example:
+
+    Internet
+       ↓
+    Load Balancer
+       ↓
+    API
+       ↓
+    Private Network
+       ↓
+    Database / Redis / Workers
+
+Database and Redis should not normally be publicly accessible.
+
+---
+
+# 77. Database Exposure
+
+Never expose MySQL directly to the public internet unless there is a very specific and secured requirement.
+
+---
+
+# 78. Redis Exposure
+
+Redis should remain private.
+
+Do not expose Redis publicly without strong authentication and network restrictions.
+
+---
+
+# 79. Object Storage
+
+Media storage should use controlled access.
+
+Prefer:
+
+    Private Bucket
+        ↓
+    Signed URL
+        ↓
+    User
+
+rather than making all uploaded media public.
+
+---
+
+# 80. Signed URLs
+
+Use short-lived signed URLs for private media when appropriate.
+
+This allows:
+
+- Temporary access
+- Expiration
+- Reduced API bandwidth
+
+---
+
+# 81. Media Authorization
+
+A valid signed URL should only be generated after authorization.
+
+Flow:
+
+    User
+      ↓
+    API
+      ↓
+    Verify Permission
+      ↓
+    Generate Signed URL
+      ↓
+    Storage
+
+---
+
+# 82. Temporary URLs
+
+Temporary access URLs should have limited expiration.
+
+Avoid permanent public links for private content.
+
+---
+
+# 83. Resource Quotas
+
+Users should have limits for:
+
+- Storage
+- Upload size
+- Number of projects
+- Render jobs
+- AI requests
+- Processing time
+
+---
+
+# 84. Resource Exhaustion
+
+Security includes protection against resource exhaustion.
+
+Potential targets:
+
+    CPU
+    RAM
+    Disk
+    Database
+    Redis
+    AI API
+    Storage
+
+---
+
+# 85. AI Cost Protection
+
+AI workflows should have budget controls.
+
+Possible limits:
+
+    Maximum Tokens
+    Maximum Requests
+    Maximum Cost
+    Maximum Workflow Steps
+
+---
+
+# 86. Workflow Limits
+
+AI workflows should have:
+
+    Maximum Steps
+    Maximum Runtime
+    Maximum Tool Calls
+    Maximum Retry Count
+
+This prevents infinite loops.
+
+---
+
+# 87. Agent Loop Protection
+
+Agents must not execute indefinitely.
+
+Example:
+
+    Agent
+      ↓
+    Tool
+      ↓
+    Result
+      ↓
+    Agent
+      ↓
+    Tool
+      ↓
+    ...
+
+Set explicit limits.
+
+---
+
+# 88. Render Resource Protection
+
+Rendering jobs should enforce:
+
+- CPU limits
+- Memory limits
+- Timeout
+- File size limits
+- Queue limits
+
+---
+
+# 89. Sandbox Principle
+
+Untrusted processing should occur in isolated environments whenever possible.
+
+Especially:
+
+    Video Processing
+    AI-generated workflows
+    External media processing
+
+---
+
+# 90. Principle of Least Privilege
+
+Every component should receive only the permissions it requires.
+
+Example:
+
+    Frontend
+        → API access
+
+    API
+        → Database + Queue
+
+    Worker
+        → Storage + Queue + Processing resources
+
+Do not give every component access to everything.
+
+---
+
+# 91. Failure Behavior
+
+Security failures must fail closed.
+
+Example:
+
+    Authorization Check Failed
+        ↓
+    Deny Access
+
+Never:
+
+    Authorization Check Failed
+        ↓
+    Allow Access
+
+---
+
+# 92. Secure Defaults
+
+Default configuration should be secure.
+
+Examples:
+
+    Private media
+    Authentication required
+    Rate limits enabled
+    Debug disabled in production
+    Secure cookies
+    Restricted CORS
+
+---
+
+# 93. Development vs Production
+
+Development settings must not accidentally be used in production.
+
+Examples:
+
+    DEBUG=true
+    permissive CORS
+    verbose errors
+    development credentials
+
+must not be enabled in production.
+
+---
+
+# 94. Security Testing
+
+Security testing should include:
+
+- Authentication tests
+- Authorization tests
+- Input validation tests
+- Upload tests
+- API abuse tests
+- Tool permission tests
+- AI security tests
+- Dependency scanning
+
+---
+
+# 95. AI Security Testing
+
+Test scenarios such as:
+
+    Prompt Injection
+    Tool Abuse
+    Unauthorized Tool Calls
+    Malicious Media Metadata
+    Malicious Subtitles
+    Path Traversal
+    Command Injection
+
+---
+
+# 96. FFmpeg Security Testing
+
+Test:
+
+- Malformed files
+- Large files
+- Unsupported codecs
+- Invalid parameters
+- Timeout behavior
+- Process termination
+- Temporary file cleanup
+
+---
+
+# 97. Incident Response
+
+Security incidents should follow:
+
+    Detect
+      ↓
+    Contain
+      ↓
+    Investigate
+      ↓
+    Rotate Credentials
+      ↓
+    Recover
+      ↓
+    Document
+      ↓
+    Improve
+
+---
+
+# 98. Secret Rotation
+
+Important secrets should be rotatable.
+
+Examples:
+
+    JWT signing keys
+    AI API keys
+    Database credentials
+    Storage credentials
+
+---
+
+# 99. Security Documentation
+
+Security architecture changes must be documented.
+
+Update:
+
+    context/rules/security.md
+
+when security assumptions or controls change.
+
+---
+
+# 100. Golden Rules
+
+1. Never trust external input.
+2. Authenticate protected requests.
+3. Authorize every protected resource.
+4. Prevent IDOR.
+5. Never store plain-text passwords.
+6. Never expose private API keys.
+7. Never expose secrets to the frontend.
+8. Validate every request.
+9. Validate every AI output.
+10. Never execute arbitrary AI-generated commands.
+11. Keep FFmpeg behind a controlled service.
+12. Keep workers isolated.
+13. Limit worker permissions.
+14. Protect file paths.
+15. Validate uploads.
+16. Limit upload sizes.
+17. Use rate limiting.
+18. Protect expensive operations.
+19. Use timeouts.
+20. Protect queues.
+21. Protect databases.
+22. Keep Redis private.
+23. Keep media private by default.
+24. Use signed URLs for controlled media access.
+25. Encrypt sensitive data in transit and at rest.
+26. Configure CORS explicitly.
+27. Use secure HTTP headers.
+28. Protect cookie-based authentication against CSRF.
+29. Prevent XSS.
+30. Protect against SSRF.
+31. Verify webhooks.
+32. Never log secrets.
+33. Maintain audit logs for sensitive actions.
+34. Scan dependencies.
+35. Secure CI/CD.
+36. Run containers with minimum privileges.
+37. Apply network segmentation.
+38. Use resource quotas.
+39. Limit AI workflow steps and cost.
+40. Fail securely.
+41. Prefer secure defaults.
+42. Rotate compromised credentials immediately.
+43. Test security continuously.
+44. Treat AI as an untrusted actor.
+45. Treat uploaded media as untrusted input.
